@@ -5,8 +5,6 @@ from pymongo import MongoClient
 from bson import ObjectId
 import os
 from dotenv import load_dotenv
-from fastapi.middleware.cors import CORSMiddleware
-
 
 # -------------------------
 # Config
@@ -31,14 +29,6 @@ doctor_collection = db[COLLECTION_NAME]
 # FastAPI
 # -------------------------
 app = FastAPI(title="BUD Doctor API")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # -------------------------
 # Model
