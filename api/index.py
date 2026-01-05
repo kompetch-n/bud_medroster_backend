@@ -86,8 +86,9 @@ class ShiftRequest(BaseModel):
     care_provider_code: str
     department: Optional[str] = None
 
-    date: str  # YYYY-MM-DD
-    shift: str  # morning | afternoon | night
+    date: str              # YYYY-MM-DD
+    start_time: str        # HH:mm
+    end_time: str          # HH:mm
 
 
 # -------------------------
