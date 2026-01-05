@@ -6,11 +6,9 @@ from bson import ObjectId
 from datetime import datetime
 
 import os
-import requests
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
 
-LINE_NOTIFY_API = "https://bud-medroster-lineoa-backend.vercel.app/send-line"
 
 # -------------------------
 # Config
@@ -124,20 +122,6 @@ def doctor_helper(doc) -> dict:
         "status": doc.get("status"),
     }
 
-
-def notify_approver(line_id: str, message: str):
-    payload = {
-        "to": line_id,
-        "message": message
-    }
-
-    requests.post(
-        LINE_NOTIFY_API,
-        json=payload,
-        timeout=10
-    )
-
-
 # -------------------------
 # Create Doctor
 # -------------------------
@@ -204,16 +188,6 @@ def delete_doctor(doctor_id: str):
 # -------------------------
 # Create Doctor Request
 # -------------------------
-# @app.post("/shift-requests")
-# def create_shift_request(payload: ShiftRequest):
-#     doc = payload.dict()
-#     doc["status"] = "pending"
-#     doc["requested_at"] = datetime.utcnow()
-
-#     shift_collection.insert_one(doc)
-
-#     return {"message": "Shift request submitted"}
-
 @app.post("/shift-requests")
 def create_shift_request(payload: ShiftRequest):
     doc = payload.dict()
@@ -222,25 +196,7 @@ def create_shift_request(payload: ShiftRequest):
 
     shift_collection.insert_one(doc)
 
-    # -------------------------
-    # 🔔 SEND LINE TO APPROVER
-    # -------------------------
-    approver_line_id = "Ue93ad18d5ce994ad8e6e46021937e4d4"  # 🔁 ดึงจาก DB จริงภายหลัง
-
-    message = (
-        "📝 มีคำขอเวรใหม่\n\n"
-        f"แพทย์: {doc['thai_full_name']}\n"
-        f"แผนก: {doc.get('department','-')}\n"
-        f"วันที่: {doc['date']}\n"
-        f"เวลา: {doc['start_time']} - {doc['end_time']}\n"
-        f"หมายเหตุ: {doc.get('remark') or '-'}\n\n"
-        "กรุณาเข้าไปตรวจสอบในระบบ"
-    )
-
-    notify_approver(approver_line_id, message)
-
     return {"message": "Shift request submitted"}
-
 
 @app.get("/shift-requests")
 def get_shift_requests(
