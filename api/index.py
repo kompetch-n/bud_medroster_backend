@@ -19,6 +19,7 @@ MONGO_URI = os.getenv(
 )
 DB_NAME = "doctor_roster_system"
 COLLECTION_NAME = "doctors"
+SHIFT_COLLECTION = "shift_requests"
 
 # -------------------------
 # Database
@@ -26,6 +27,7 @@ COLLECTION_NAME = "doctors"
 client = MongoClient(MONGO_URI)
 db = client[DB_NAME]
 doctor_collection = db[COLLECTION_NAME]
+shift_collection = db[SHIFT_COLLECTION]
 
 # -------------------------
 # FastAPI
@@ -75,6 +77,16 @@ class Doctor(BaseModel):
     sub_specialties: Optional[List[str]] = []
 
     status: Optional[str] = None
+
+class ShiftRequest(BaseModel):
+    doctor_id: str
+    thai_full_name: str
+    care_provider_code: str
+    department: Optional[str] = None
+
+    date: str  # YYYY-MM-DD
+    shift: str  # morning | afternoon | night
+
 
 # -------------------------
 # Helper
@@ -168,3 +180,35 @@ def delete_doctor(doctor_id: str):
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Doctor not found")
     return {"message": "Doctor deleted successfully"}
+
+# -------------------------
+# Create Doctor Request
+# -------------------------
+@app.post("/shift-requests")
+def create_shift_request(payload: ShiftRequest):
+    doc = payload.dict()
+    doc["status"] = "pending"
+    doc["requested_at"] = datetime.utcnow()
+
+    shift_collection.insert_one(doc)
+
+    return {"message": "Shift request submitted"}
+
+@app.get("/shift-requests")
+def get_shift_requests(
+    status: Optional[str] = None,
+    date: Optional[str] = None
+):
+    query = {}
+    if status:
+        query["status"] = status
+    if date:
+        query["date"] = date
+
+    results = []
+    for doc in shift_collection.find(query).sort("date", 1):
+        doc["_id"] = str(doc["_id"])
+        results.append(doc)
+
+    return results
+
