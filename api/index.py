@@ -89,6 +89,7 @@ class ShiftRequest(BaseModel):
     date: str              # YYYY-MM-DD
     start_time: str        # HH:mm
     end_time: str          # HH:mm
+    remark: str | None = None
 
 
 # -------------------------
