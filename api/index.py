@@ -93,15 +93,22 @@ class ShiftRequest(BaseModel):
     end_time: str          # HH:mm
     remark: str | None = None
 
+class Shift(BaseModel):
+    name: str
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+
+
+class SubDepartment(BaseModel):
+    name: str
+    shifts: List[Shift] = []
+
+
 class Department(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
-
     department: str
-    sub_department: Optional[str] = None
-    shift: str
+    sub_departments: List[SubDepartment] = []
 
-    start_time: str   # HH:mm
-    end_time: str     # HH:mm
 
 
 # -------------------------
@@ -138,12 +145,8 @@ def department_helper(doc) -> dict:
     return {
         "_id": str(doc["_id"]),
         "department": doc.get("department"),
-        "sub_department": doc.get("sub_department"),
-        "shift": doc.get("shift"),
-        "start_time": doc.get("start_time"),
-        "end_time": doc.get("end_time"),
+        "sub_departments": doc.get("sub_departments", []),
     }
-
 
 # -------------------------
 # Create Doctor
@@ -244,7 +247,7 @@ def get_shift_requests(
 # -------------------------
 @app.post("/departments")
 def create_department(payload: Department):
-    doc = payload.dict(exclude={"id"})
+    doc = payload.dict(by_alias=True, exclude={"id"})
     result = department_collection.insert_one(doc)
     new_doc = department_collection.find_one({"_id": result.inserted_id})
     return department_helper(new_doc)
@@ -266,11 +269,13 @@ def get_department(department_id: str):
 @app.put("/departments/{department_id}")
 def update_department(
     department_id: str,
-    payload: Dict[str, Any] = Body(...)
+    payload: Department
 ):
+    update_data = payload.dict(by_alias=True, exclude={"id"})
+
     result = department_collection.update_one(
         {"_id": ObjectId(department_id)},
-        {"$set": payload}
+        {"$set": update_data}
     )
 
     if result.matched_count == 0:
@@ -281,7 +286,52 @@ def update_department(
 
 @app.delete("/departments/{department_id}")
 def delete_department(department_id: str):
-    result = department_collection.delete_one({"_id": ObjectId(department_id)})
+    result = department_collection.delete_one(
+        {"_id": ObjectId(department_id)}
+    )
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Department not found")
     return {"message": "Department deleted successfully"}
+
+@app.patch("/departments/{department_id}/sub-departments")
+def add_sub_department(
+    department_id: str,
+    payload: SubDepartment
+):
+    result = department_collection.update_one(
+        {"_id": ObjectId(department_id)},
+        {"$push": {"sub_departments": payload.dict()}}
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Department not found")
+
+    doc = department_collection.find_one({"_id": ObjectId(department_id)})
+    return department_helper(doc)
+
+@app.patch("/departments/{department_id}/sub-departments/{sub_name}/shifts")
+def add_shift(
+    department_id: str,
+    sub_name: str,
+    payload: Shift
+):
+    result = department_collection.update_one(
+        {
+            "_id": ObjectId(department_id),
+            "sub_departments.name": sub_name
+        },
+        {
+            "$push": {
+                "sub_departments.$.shifts": payload.dict()
+            }
+        }
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(
+            status_code=404,
+            detail="Department or Sub-department not found"
+        )
+
+    doc = department_collection.find_one({"_id": ObjectId(department_id)})
+    return department_helper(doc)
