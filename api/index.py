@@ -335,3 +335,94 @@ def add_shift(
 
     doc = department_collection.find_one({"_id": ObjectId(department_id)})
     return department_helper(doc)
+
+@app.patch("/departments/{department_id}/sub-departments/{sub_name}")
+def update_sub_department(
+    department_id: str,
+    sub_name: str,
+    payload: SubDepartment
+):
+    result = department_collection.update_one(
+        {
+            "_id": ObjectId(department_id),
+            "sub_departments.name": sub_name
+        },
+        {
+            "$set": {
+                "sub_departments.$.name": payload.name
+            }
+        }
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(404, "Sub-department not found")
+
+    doc = department_collection.find_one({"_id": ObjectId(department_id)})
+    return department_helper(doc)
+
+@app.delete("/departments/{department_id}/sub-departments/{sub_name}")
+def delete_sub_department(department_id: str, sub_name: str):
+    result = department_collection.update_one(
+        {"_id": ObjectId(department_id)},
+        {"$pull": {"sub_departments": {"name": sub_name}}}
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(404, "Department not found")
+
+    return {"message": "Sub-department deleted"}
+
+@app.patch(
+    "/departments/{department_id}/sub-departments/{sub_name}/shifts/{shift_name}"
+)
+def update_shift(
+    department_id: str,
+    sub_name: str,
+    shift_name: str,
+    payload: Shift
+):
+    result = department_collection.update_one(
+        {
+            "_id": ObjectId(department_id),
+            "sub_departments.name": sub_name,
+            "sub_departments.shifts.name": shift_name
+        },
+        {
+            "$set": {
+                "sub_departments.$[s].shifts.$[sh]": payload.dict()
+            }
+        },
+        array_filters=[
+            {"s.name": sub_name},
+            {"sh.name": shift_name}
+        ]
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(404, "Shift not found")
+
+    doc = department_collection.find_one({"_id": ObjectId(department_id)})
+    return department_helper(doc)
+
+@app.delete(
+    "/departments/{department_id}/sub-departments/{sub_name}/shifts/{shift_name}"
+)
+def delete_shift(department_id: str, sub_name: str, shift_name: str):
+    result = department_collection.update_one(
+        {
+            "_id": ObjectId(department_id),
+            "sub_departments.name": sub_name
+        },
+        {
+            "$pull": {
+                "sub_departments.$.shifts": {"name": shift_name}
+            }
+        }
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(404, "Shift not found")
+
+    return {"message": "Shift deleted"}
+
+
