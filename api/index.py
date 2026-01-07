@@ -22,6 +22,7 @@ MONGO_URI = os.getenv(
 DB_NAME = "doctor_roster_system"
 COLLECTION_NAME = "doctors"
 SHIFT_COLLECTION = "shift_requests"
+DEPARTMENT_COLLECTION = "departments"
 
 # -------------------------
 # Database
@@ -30,6 +31,7 @@ client = MongoClient(MONGO_URI)
 db = client[DB_NAME]
 doctor_collection = db[COLLECTION_NAME]
 shift_collection = db[SHIFT_COLLECTION]
+department_collection = db[DEPARTMENT_COLLECTION]
 
 # -------------------------
 # FastAPI
@@ -91,6 +93,16 @@ class ShiftRequest(BaseModel):
     end_time: str          # HH:mm
     remark: str | None = None
 
+class Department(BaseModel):
+    id: Optional[str] = Field(None, alias="_id")
+
+    department: str
+    sub_department: Optional[str] = None
+    shift: str
+
+    start_time: str   # HH:mm
+    end_time: str     # HH:mm
+
 
 # -------------------------
 # Helper
@@ -121,6 +133,17 @@ def doctor_helper(doc) -> dict:
         "sub_specialties": doc.get("sub_specialties", []),
         "status": doc.get("status"),
     }
+
+def department_helper(doc) -> dict:
+    return {
+        "_id": str(doc["_id"]),
+        "department": doc.get("department"),
+        "sub_department": doc.get("sub_department"),
+        "shift": doc.get("shift"),
+        "start_time": doc.get("start_time"),
+        "end_time": doc.get("end_time"),
+    }
+
 
 # -------------------------
 # Create Doctor
@@ -216,3 +239,49 @@ def get_shift_requests(
 
     return results
 
+# -------------------------
+# Department
+# -------------------------
+@app.post("/departments")
+def create_department(payload: Department):
+    doc = payload.dict(exclude={"id"})
+    result = department_collection.insert_one(doc)
+    new_doc = department_collection.find_one({"_id": result.inserted_id})
+    return department_helper(new_doc)
+
+@app.get("/departments")
+def get_departments():
+    results = []
+    for doc in department_collection.find().sort("department", 1):
+        results.append(department_helper(doc))
+    return results
+
+@app.get("/departments/{department_id}")
+def get_department(department_id: str):
+    doc = department_collection.find_one({"_id": ObjectId(department_id)})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Department not found")
+    return department_helper(doc)
+
+@app.put("/departments/{department_id}")
+def update_department(
+    department_id: str,
+    payload: Dict[str, Any] = Body(...)
+):
+    result = department_collection.update_one(
+        {"_id": ObjectId(department_id)},
+        {"$set": payload}
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Department not found")
+
+    doc = department_collection.find_one({"_id": ObjectId(department_id)})
+    return department_helper(doc)
+
+@app.delete("/departments/{department_id}")
+def delete_department(department_id: str):
+    result = department_collection.delete_one({"_id": ObjectId(department_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Department not found")
+    return {"message": "Department deleted successfully"}
