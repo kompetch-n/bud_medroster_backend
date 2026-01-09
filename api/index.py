@@ -248,12 +248,7 @@ def get_shift_requests(
     return results
 
 @app.get("/shift-requests/table")
-def get_shift_table(
-    ipus: str,
-    department: str,
-    start: str,
-    end: str
-):
+def get_shift_table(ipus: str, department: str, start: str, end: str):
     query = {
         "ipus": ipus,
         "department": department,
@@ -264,6 +259,8 @@ def get_shift_table(
     results = []
     for doc in shift_collection.find(query):
         doc["_id"] = str(doc["_id"])
+        # ✅ normalize key
+        doc["shift_key"] = f'{doc["sub_department"]}|{doc["shift_name"]}'
         results.append(doc)
 
     return results
