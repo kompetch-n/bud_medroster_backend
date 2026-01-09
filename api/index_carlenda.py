@@ -86,16 +86,11 @@ class ShiftRequest(BaseModel):
     doctor_id: str
     thai_full_name: str
     care_provider_code: str
-
-    ipus: str
-    department: str
-    sub_department: str
-    shift_name: str
+    department: Optional[str] = None
 
     date: str              # YYYY-MM-DD
-    start_time: str | None = None
-    end_time: str | None = None
-
+    start_time: str        # HH:mm
+    end_time: str          # HH:mm
     remark: str | None = None
 
 class Shift(BaseModel):
@@ -246,40 +241,6 @@ def get_shift_requests(
         results.append(doc)
 
     return results
-
-@app.get("/shift-requests/table")
-def get_shift_table(
-    ipus: str,
-    department: str,
-    start: str,
-    end: str
-):
-    query = {
-        "ipus": ipus,
-        "department": department,
-        "date": {"$gte": start, "$lte": end},
-        "status": {"$ne": "rejected"}
-    }
-
-    results = []
-    for doc in shift_collection.find(query):
-        doc["_id"] = str(doc["_id"])
-        results.append(doc)
-
-    return results
-
-@app.patch("/shift-requests/{request_id}/status")
-def update_shift_status(request_id: str, status: str):
-    result = shift_collection.update_one(
-        {"_id": ObjectId(request_id)},
-        {"$set": {"status": status}}
-    )
-
-    if result.matched_count == 0:
-        raise HTTPException(404, "Request not found")
-
-    return {"message": "Status updated"}
-
 
 # -------------------------
 # Department
