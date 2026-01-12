@@ -194,6 +194,10 @@ def update_doctor(
     doctor_id: str,
     payload: Dict[str, Any] = Body(...)
 ):
+    # ❌ ห้าม update _id
+    payload.pop("_id", None)
+    payload.pop("id", None)
+
     result = doctor_collection.update_one(
         {"_id": ObjectId(doctor_id)},
         {"$set": payload}
