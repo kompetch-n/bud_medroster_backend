@@ -80,6 +80,13 @@ class Doctor(BaseModel):
     specialties: Optional[List[str]] = []
     sub_specialties: Optional[List[str]] = []
 
+    role: Optional[str] = None
+
+    approvals: Optional[Dict[str, bool]] = {
+        "shift": False,
+        "leave": False
+    }
+
     status: Optional[str] = None
 
 class ShiftRequest(BaseModel):
@@ -143,6 +150,13 @@ def doctor_helper(doc) -> dict:
         "department_group": doc.get("department_group"),
         "specialties": doc.get("specialties", []),
         "sub_specialties": doc.get("sub_specialties", []),
+
+        "role": doc.get("role"),
+        "approvals": doc.get("approvals", {
+            "shift": False,
+            "leave": False
+        }),
+
         "status": doc.get("status"),
     }
 
