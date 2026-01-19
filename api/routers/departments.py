@@ -1,9 +1,9 @@
 from fastapi import APIRouter, HTTPException
 from bson import ObjectId
 
-from core.database import department_collection
-from models.department import Department, SubDepartment, Shift
-from utils.helpers import department_helper
+from api.core.database import department_collection
+from api.models.department import Department, SubDepartment, Shift
+from api.utils.helpers import department_helper
 
 router = APIRouter(prefix="/departments", tags=["Departments"])
 

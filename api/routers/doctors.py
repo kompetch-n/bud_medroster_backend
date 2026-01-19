@@ -2,8 +2,8 @@ from fastapi import APIRouter, HTTPException, Body
 from bson import ObjectId
 from typing import Dict, Any
 
-from core.database import doctor_collection
-from utils.helpers import doctor_helper
+from api.core.database import doctor_collection
+from api.utils.helpers import doctor_helper
 
 router = APIRouter(prefix="/doctors", tags=["Doctors"])
 

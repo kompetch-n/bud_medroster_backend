@@ -3,8 +3,8 @@ from bson import ObjectId
 from datetime import datetime
 from typing import Optional
 
-from core.database import shift_collection
-from models.shift import ShiftRequest
+from api.core.database import shift_collection
+from api.models.shift import ShiftRequest
 
 router = APIRouter(prefix="/shift-requests", tags=["Shifts"])
 
