@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from bson import ObjectId
 from datetime import datetime
 
-from api.db import leave_collection
+from api.core.database import leave_collection
 from api.models.leave import LeaveRequest
 
 router = APIRouter(prefix="/leaves", tags=["Leaves"])
