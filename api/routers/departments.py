@@ -71,3 +71,15 @@ def add_shift(department_id: str, sub_name: str, payload: Shift):
     return department_helper(
         department_collection.find_one({"_id": ObjectId(department_id)})
     )
+
+@router.get("/{department_name}/structure")
+def get_department_structure(department_name: str):
+    doc = department_collection.find_one(
+        {"department": department_name},
+        {"_id": 0, "sub_departments": 1}
+    )
+
+    if not doc:
+        raise HTTPException(404, "Department not found")
+
+    return doc
