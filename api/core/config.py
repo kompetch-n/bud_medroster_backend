@@ -13,5 +13,6 @@ DB_NAME = "doctor_roster_system"
 COLLECTIONS = {
     "doctors": "doctors",
     "shifts": "shift_requests",
-    "departments": "departments"
+    "departments": "departments",
+    "leaves": "leaves"
 }
