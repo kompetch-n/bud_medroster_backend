@@ -31,7 +31,7 @@ def create_leave(data: LeaveRequest):
     # ✅ ส่ง LINE หาแพทย์ตัวแทน
     for r in doc["replacement_doctors"]:
         doctor = doctor_collection.find_one(
-            {"medical_license": r["doctor_id"]}
+            {"_id": ObjectId(r["doctor_id"])}
         )
 
         if not doctor or not doctor.get("line_id"):

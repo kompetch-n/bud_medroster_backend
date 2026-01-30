@@ -124,9 +124,10 @@ async def webhook(request: Request):
 
             # ✅ เช็คว่ามีคนรับแล้วหรือยัง
             already = any(
-                d["status"] == "accepted"
-                for d in leave["replacement_doctors"]
+                d.get("status") == "accepted"
+                for d in leave.get("replacement_doctors", [])
             )
+
 
             if already:
                 send_line_message(user_id, "มีผู้รับเวรแล้ว")
@@ -155,7 +156,7 @@ async def webhook(request: Request):
                     }
                 },
                 array_filters=[
-                    {"elem.doctor_id": doctor["_id"]}
+                    {"elem.doctor_id": str(doctor["_id"])}
                 ]
             )
 
