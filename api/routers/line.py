@@ -139,7 +139,7 @@ async def webhook(request: Request):
 
             # เช็คว่ามีคนรับแล้วหรือยัง
             already = any(
-                d["status"] == "accepted"
+                d["status"] == "matched"
                 for d in leave["replacement_doctors"]
             )
 
@@ -155,7 +155,7 @@ async def webhook(request: Request):
                 },
                 {
                     "$set": {
-                        "replacement_doctors.$[elem].status": "accepted",
+                        "replacement_doctors.$[elem].status": "matched",
                         "accepted_by": doctor["thai_full_name"],
                         "status": "matched"
                     }

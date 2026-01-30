@@ -76,7 +76,7 @@ def get_shift_table(ipus: str, department: str, start: str, end: str):
 
             accepted = next(
                 (r for r in leave.get("replacement_doctors", [])
-                if r.get("status") in ["approved", "matched"]),
+                if r.get("status") in ["approved", "matched", "accepted"]),
                 None
             )
 
