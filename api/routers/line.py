@@ -109,40 +109,31 @@ async def webhook(request: Request):
                 send_line_message(user_id, "ยกเลิกแล้ว")
 
         # -------------------------
-        # รับเวรแทน
+        # รับเวรแทน (เช็คก่อน state!)
         # -------------------------
         if msg.startswith("รับ"):
             leave_id = msg.replace("รับ", "").strip()
 
-            leave = leave_collection.find_one({
-                "_id": ObjectId(leave_id)
-            })
+            try:
+                leave = leave_collection.find_one({
+                    "_id": ObjectId(leave_id)
+                })
+            except:
+                send_line_message(user_id, "รูปแบบรหัสไม่ถูกต้อง")
+                continue
 
             if not leave:
                 send_line_message(user_id, "ไม่พบรายการ")
                 continue
 
-            # ✅ เช็คว่ามีคนรับแล้วหรือยัง
-            already = any(
-                d.get("status") == "accepted"
-                for d in leave.get("replacement_doctors", [])
-            )
-
-
-            if already:
-                send_line_message(user_id, "มีผู้รับเวรแล้ว")
-                continue
-
-            # ✅ หา doctor จาก line_id
             doctor = doctor_collection.find_one({
                 "line_id": user_id
             })
 
             if not doctor:
-                send_line_message(user_id, "ไม่พบข้อมูลแพทย์")
+                send_line_message(user_id, "กรุณาลงทะเบียน LINE ก่อน")
                 continue
 
-            # ✅ Atomic update (กัน race condition)
             result = leave_collection.update_one(
                 {
                     "_id": ObjectId(leave_id),
@@ -165,6 +156,8 @@ async def webhook(request: Request):
                 continue
 
             send_line_message(user_id, "✅ คุณได้รับเวรนี้แล้ว")
+            continue
+
 
     return {"status": "ok"}
 
