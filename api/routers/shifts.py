@@ -61,12 +61,13 @@ def get_shift_table(ipus: str, department: str, start: str, end: str):
     for doc in shift_collection.find(query):
         doc["_id"] = str(doc["_id"])
         doc["shift_key"] = f'{doc["sub_department"]}|{doc["shift_name"]}'
+        doc_date = doc["date"]
 
         # 🔥 หา leave วันนั้น
         leave = leave_collection.find_one({
             "doctor_id": doc["doctor_id"],
-            "start_date": {"$lte": doc["date"]},
-            "end_date": {"$gte": doc["date"]},
+            "start_date": {"$lte": doc_date},
+            "end_date": {"$gte": doc_date},
             "status": {"$in": ["waiting_replacement", "matched"]}
         })
 
@@ -74,13 +75,14 @@ def get_shift_table(ipus: str, department: str, start: str, end: str):
             doc["is_on_leave"] = True
 
             accepted = next(
-                (r for r in leave["replacement_doctors"]
-                 if r["status"] == "accepted"),
+                (r for r in leave.get("replacement_doctors", [])
+                if r.get("status") in ["approved", "matched"]),
                 None
             )
 
             if accepted:
-                doc["replacement_name"] = accepted["doctor_name"]
+                doc["replacement_name"] = accepted.get("doctor_name")
+
 
         results.append(doc)
 
