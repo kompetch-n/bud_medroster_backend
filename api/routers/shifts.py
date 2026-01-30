@@ -3,7 +3,7 @@ from bson import ObjectId
 from datetime import datetime
 from typing import Optional
 
-from api.core.database import shift_collection
+from api.core.database import shift_collection, leave_collection
 from api.models.shift import ShiftRequest
 
 router = APIRouter(prefix="/shift-requests", tags=["Shifts"])
@@ -30,8 +30,25 @@ def get_shift_requests(status: Optional[str] = None, date: Optional[str] = None)
         results.append(doc)
     return results
 
+# @router.get("/table")
+# def get_shift_table(ipus: str, department: str, start: str, end: str):
+#     query = {
+#         "ipus": ipus,
+#         "department": department,
+#         "date": {"$gte": start, "$lte": end},
+#         "status": {"$ne": "rejected"}
+#     }
+
+#     results = []
+#     for doc in shift_collection.find(query):
+#         doc["_id"] = str(doc["_id"])
+#         doc["shift_key"] = f'{doc["sub_department"]}|{doc["shift_name"]}'
+#         results.append(doc)
+#     return results
+
 @router.get("/table")
 def get_shift_table(ipus: str, department: str, start: str, end: str):
+
     query = {
         "ipus": ipus,
         "department": department,
@@ -40,10 +57,33 @@ def get_shift_table(ipus: str, department: str, start: str, end: str):
     }
 
     results = []
+
     for doc in shift_collection.find(query):
         doc["_id"] = str(doc["_id"])
         doc["shift_key"] = f'{doc["sub_department"]}|{doc["shift_name"]}'
+
+        # 🔥 หา leave วันนั้น
+        leave = leave_collection.find_one({
+            "doctor_id": doc["doctor_id"],
+            "start_date": {"$lte": doc["date"]},
+            "end_date": {"$gte": doc["date"]},
+            "status": {"$in": ["waiting_replacement", "matched"]}
+        })
+
+        if leave:
+            doc["is_on_leave"] = True
+
+            accepted = next(
+                (r for r in leave["replacement_doctors"]
+                 if r["status"] == "accepted"),
+                None
+            )
+
+            if accepted:
+                doc["replacement_name"] = accepted["doctor_name"]
+
         results.append(doc)
+
     return results
 
 @router.patch("/{request_id}/status")
