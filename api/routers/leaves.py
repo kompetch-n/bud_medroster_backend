@@ -19,7 +19,9 @@ def serialize(doc):
 # ===============================
 @router.post("/")
 def create_leave(data: LeaveRequest):
-    doc = data.dict(by_alias=True)
+    doc = data.dict()
+    doc["start_date"] = str(doc["start_date"])
+    doc["end_date"] = str(doc["end_date"])
     doc["created_at"] = datetime.utcnow()
     doc["status"] = "waiting_replacement"
 
