@@ -59,9 +59,13 @@ def send_line_api(data: SendLineRequest):
 async def webhook(request: Request):
     body = await request.json()
 
+    print("🔥 LINE WEBHOOK HIT:", body)
+
     for event in body.get("events", []):
         user_id = event["source"].get("userId")
         msg = event.get("message", {}).get("text", "").strip()
+
+        print("📩 MESSAGE:", msg)
 
         if not user_id or not msg:
             continue
@@ -114,13 +118,36 @@ async def webhook(request: Request):
         if msg.startswith("รับ"):
             leave_id = msg.replace("รับ", "").strip()
 
-            leave = leave_collection.find_one({
-                "_id": ObjectId(leave_id)
-            })
+            print("🟡 leave_id from msg:", leave_id)
+
+            try:
+                oid = ObjectId(leave_id)
+            except:
+                send_line_message(user_id, "❌ รหัสไม่ถูกต้อง")
+                continue
+
+            leave = leave_collection.find_one({"_id": oid})
+
+            print("🟡 LEAVE:", leave)
 
             if not leave:
                 send_line_message(user_id, "ไม่พบรายการ")
                 continue
+
+            # ✅ หา doctor จาก line_id
+            doctor = doctor_collection.find_one({
+                "line_id": user_id
+            })
+
+            print("🟢 USER ID:", user_id)
+            print("🟢 DOCTOR:", doctor)
+
+            if not doctor:
+                send_line_message(user_id, "ไม่พบข้อมูลแพทย์")
+                continue
+
+            print("🟢 DOCTOR LICENSE:", doctor["medical_license"])
+            print("🟢 REPLACEMENT LIST:", leave["replacement_doctors"])
 
             # ✅ เช็คว่ามีคนรับแล้วหรือยัง
             already = any(
@@ -132,19 +159,10 @@ async def webhook(request: Request):
                 send_line_message(user_id, "มีผู้รับเวรแล้ว")
                 continue
 
-            # ✅ หา doctor จาก line_id
-            doctor = doctor_collection.find_one({
-                "line_id": user_id
-            })
-
-            if not doctor:
-                send_line_message(user_id, "ไม่พบข้อมูลแพทย์")
-                continue
-
-            # ✅ Atomic update (กัน race condition)
+            # ✅ Atomic update
             result = leave_collection.update_one(
                 {
-                    "_id": ObjectId(leave_id),
+                    "_id": oid,
                     "replacement_doctors.status": "pending"
                 },
                 {
@@ -159,11 +177,14 @@ async def webhook(request: Request):
                 ]
             )
 
+            print("🟣 UPDATE RESULT:", result.modified_count)
+
             if result.modified_count == 0:
-                send_line_message(user_id, "มีคนรับไปก่อนแล้ว")
+                send_line_message(user_id, "มีคนรับไปก่อนแล้ว หรือไม่อยู่ในรายชื่อ")
                 continue
 
             send_line_message(user_id, "✅ คุณได้รับเวรนี้แล้ว")
+
 
     return {"status": "ok"}
 
