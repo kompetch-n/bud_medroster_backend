@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request
 from datetime import datetime
 
 from api.core.database import doctor_collection, session_collection
+from api.models.line import SendLineRequest
 from api.services.line_service import send_line_message
 
 router = APIRouter()
@@ -34,6 +35,15 @@ def update_state(user_id, state, context=None):
         },
         upsert=True
     )
+
+@router.post("/send-line")
+def send_line_api(data: SendLineRequest):
+    result = send_line_message(data.to, data.message)
+
+    return {
+        "status": "sent",
+        "line_response": result
+    }
 
 # -------------------------
 # Webhook
