@@ -108,22 +108,24 @@ async def webhook(request: Request):
                 update_state(user_id, "idle")
                 send_line_message(user_id, "ยกเลิกแล้ว")
 
+       # -------------------------
+        # STATE: waiting_accept_leave
         # -------------------------
-        # รับเวรแทน (เช็คก่อน state!)
-        # -------------------------
-        if msg.startswith("รับ"):
-            leave_id = msg.replace("รับ", "").strip()
+        elif state == "waiting_accept_leave":
 
-            try:
-                leave = leave_collection.find_one({
-                    "_id": ObjectId(leave_id)
-                })
-            except:
-                send_line_message(user_id, "รูปแบบรหัสไม่ถูกต้อง")
+            if msg.lower() != "ok":
+                send_line_message(user_id, "พิมพ์ OK เพื่อยืนยันรับเวร")
                 continue
+
+            leave_id = session["context"]["leave_id"]
+
+            leave = leave_collection.find_one({
+                "_id": ObjectId(leave_id)
+            })
 
             if not leave:
                 send_line_message(user_id, "ไม่พบรายการ")
+                update_state(user_id, "idle")
                 continue
 
             doctor = doctor_collection.find_one({
@@ -132,6 +134,18 @@ async def webhook(request: Request):
 
             if not doctor:
                 send_line_message(user_id, "กรุณาลงทะเบียน LINE ก่อน")
+                update_state(user_id, "idle")
+                continue
+
+            # เช็คว่ามีคนรับแล้วหรือยัง
+            already = any(
+                d["status"] == "accepted"
+                for d in leave["replacement_doctors"]
+            )
+
+            if already:
+                send_line_message(user_id, "มีคนรับเวรไปแล้ว")
+                update_state(user_id, "idle")
                 continue
 
             result = leave_collection.update_one(
@@ -152,10 +166,13 @@ async def webhook(request: Request):
             )
 
             if result.modified_count == 0:
-                send_line_message(user_id, "มีคนรับไปก่อนแล้ว")
+                send_line_message(user_id, "คุณไม่ได้อยู่ในรายชื่อแพทย์แทน")
+                update_state(user_id, "idle")
                 continue
 
-            send_line_message(user_id, "✅ คุณได้รับเวรนี้แล้ว")
+            send_line_message(user_id, "✅ รับเวรสำเร็จ")
+
+            update_state(user_id, "idle")
             continue
 
 

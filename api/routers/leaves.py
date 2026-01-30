@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from bson import ObjectId
 from datetime import datetime
 
-from api.core.database import leave_collection, doctor_collection
+from api.core.database import leave_collection, doctor_collection, session_collection
 from api.models.leave import LeaveRequest
 from api.services.line_service import send_line_message
 
@@ -38,18 +38,31 @@ def create_leave(data: LeaveRequest):
             continue
 
         send_line_message(
-            doctor["line_id"],
-            f"""
+    doctor["line_id"],
+    f"""
 มีคำขอเวรแทน
 
 วันที่: {doc['start_date']}
 แพทย์: {doc['thai_full_name']}
 
-พิมพ์:
-รับ {leave_id}
-เพื่อรับเวร
+พิมพ์ OK เพื่อรับเวร
 """
         )
+
+        session_collection.update_one(
+            {"user_id": doctor["line_id"]},
+            {
+                "$set": {
+                    "state": "waiting_accept_leave",
+                    "context": {
+                        "leave_id": leave_id
+                    },
+                    "updated_at": datetime.utcnow()
+                }
+            },
+            upsert=True
+        )
+
 
     doc["_id"] = leave_id
     return doc
