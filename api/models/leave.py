@@ -13,11 +13,11 @@ class LeaveRequest(BaseModel):
     doctor_id: str
     thai_full_name: str
     care_provider_code: str
-    ipus: str
+    ipus: Optional[str] = None
     department: str
-    sub_department: str
+    sub_department: Optional[str] = None
 
-    replacement_doctors: List[ReplacementDoctor]
+    replacement_doctors: List[ReplacementDoctor] = []
 
     leave_type: str
     start_date: date
