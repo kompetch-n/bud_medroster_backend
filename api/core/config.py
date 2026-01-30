@@ -14,5 +14,6 @@ COLLECTIONS = {
     "doctors": "doctors",
     "shifts": "shift_requests",
     "departments": "departments",
-    "leaves": "leaves"
+    "leaves": "leaves",
+    "line_sessions": "line_sessions"
 }

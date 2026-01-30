@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routers import doctors, shifts, departments, leaves
+from api.routers import doctors, shifts, departments, leaves, line
 
 app = FastAPI(title="BUD Doctor API")
 
@@ -17,3 +17,4 @@ app.include_router(doctors.router)
 app.include_router(shifts.router)
 app.include_router(departments.router)
 app.include_router(leaves.router)
+app.include_router(line.router)
