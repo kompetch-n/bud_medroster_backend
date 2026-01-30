@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Request
 from datetime import datetime
+from bson import ObjectId
 
-from api.core.database import doctor_collection, session_collection
+from api.core.database import doctor_collection, session_collection, leave_collection
 from api.models.line import SendLineRequest
 from api.services.line_service import send_line_message
 
@@ -107,4 +108,62 @@ async def webhook(request: Request):
                 update_state(user_id, "idle")
                 send_line_message(user_id, "ยกเลิกแล้ว")
 
+        # -------------------------
+        # รับเวรแทน
+        # -------------------------
+        if msg.startswith("รับ"):
+            leave_id = msg.replace("รับ", "").strip()
+
+            leave = leave_collection.find_one({
+                "_id": ObjectId(leave_id)
+            })
+
+            if not leave:
+                send_line_message(user_id, "ไม่พบรายการ")
+                continue
+
+            # ✅ เช็คว่ามีคนรับแล้วหรือยัง
+            already = any(
+                d["status"] == "accepted"
+                for d in leave["replacement_doctors"]
+            )
+
+            if already:
+                send_line_message(user_id, "มีผู้รับเวรแล้ว")
+                continue
+
+            # ✅ หา doctor จาก line_id
+            doctor = doctor_collection.find_one({
+                "line_id": user_id
+            })
+
+            if not doctor:
+                send_line_message(user_id, "ไม่พบข้อมูลแพทย์")
+                continue
+
+            # ✅ Atomic update (กัน race condition)
+            result = leave_collection.update_one(
+                {
+                    "_id": ObjectId(leave_id),
+                    "replacement_doctors.status": "pending"
+                },
+                {
+                    "$set": {
+                        "replacement_doctors.$[elem].status": "accepted",
+                        "accepted_by": doctor["thai_full_name"],
+                        "status": "matched"
+                    }
+                },
+                array_filters=[
+                    {"elem.doctor_id": doctor["medical_license"]}
+                ]
+            )
+
+            if result.modified_count == 0:
+                send_line_message(user_id, "มีคนรับไปก่อนแล้ว")
+                continue
+
+            send_line_message(user_id, "✅ คุณได้รับเวรนี้แล้ว")
+
     return {"status": "ok"}
+

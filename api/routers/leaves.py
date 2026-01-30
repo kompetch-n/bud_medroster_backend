@@ -2,8 +2,9 @@ from fastapi import APIRouter, HTTPException
 from bson import ObjectId
 from datetime import datetime
 
-from api.core.database import leave_collection
+from api.core.database import leave_collection, doctor_collection
 from api.models.leave import LeaveRequest
+from api.services.line_service import send_line_message
 
 router = APIRouter(prefix="/leaves", tags=["Leaves"])
 
@@ -20,10 +21,35 @@ def serialize(doc):
 def create_leave(data: LeaveRequest):
     doc = data.dict(by_alias=True)
     doc["created_at"] = datetime.utcnow()
+    doc["status"] = "waiting_replacement"
 
     result = leave_collection.insert_one(doc)
+    leave_id = str(result.inserted_id)
 
-    doc["_id"] = str(result.inserted_id)
+    # ✅ ส่ง LINE หาแพทย์ตัวแทน
+    for r in doc["replacement_doctors"]:
+        doctor = doctor_collection.find_one(
+            {"medical_license": r["doctor_id"]}
+        )
+
+        if not doctor or not doctor.get("line_id"):
+            continue
+
+        send_line_message(
+            doctor["line_id"],
+            f"""
+มีคำขอเวรแทน
+
+วันที่: {doc['start_date']}
+แพทย์: {doc['thai_full_name']}
+
+พิมพ์:
+รับ {leave_id}
+เพื่อรับเวร
+"""
+        )
+
+    doc["_id"] = leave_id
     return doc
 
 
