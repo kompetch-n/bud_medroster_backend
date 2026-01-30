@@ -173,7 +173,7 @@ async def webhook(request: Request):
                     }
                 },
                 array_filters=[
-                    {"elem.doctor_id": doctor["medical_license"]}
+                    {"elem.doctor_id": doctor["_id"]}
                 ]
             )
 
