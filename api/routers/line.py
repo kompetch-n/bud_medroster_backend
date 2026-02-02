@@ -97,8 +97,10 @@ async def webhook(request: Request):
         # -------------------------
         elif state == "confirm":
             if msg == "1":
+                from bson import ObjectId
+
                 doctor_collection.update_one(
-                    {"_id": session["context"]["doctor_id"]},
+                    {"_id": ObjectId(session["context"]["doctor_id"])},
                     {"$set": {"line_id": user_id}}
                 )
 
