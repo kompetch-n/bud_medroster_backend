@@ -97,15 +97,41 @@ async def webhook(request: Request):
         # -------------------------
         elif state == "confirm":
             if msg == "1":
+                leave_id = session["context"].get("leave_id")
 
-                doctor_collection.update_one(
-                    {"_id": ObjectId(session["context"]["doctor_id"])},
-                    {"$set": {"line_id": user_id}}
+                accepted_by = {
+                    "doctor_id": str(doctor["_id"]),
+                    "name": f"{doctor.get('thai_first_name', '')} {doctor.get('thai_last_name', '')}".strip(),
+                    "line_id": user_id,
+                    "accepted_at": datetime.utcnow()
+                }
+
+                result = leave_collection.update_one(
+                    {
+                        "_id": ObjectId(leave_id),
+                        "replacement_doctors": {
+                            "$elemMatch": {
+                                "doctor_id": str(doctor["_id"]),
+                                "status": "pending"
+                            }
+                        }
+                    },
+                    {
+                        "$set": {
+                            "replacement_doctors.$.status": "matched",
+                            "accepted_by": accepted_by,
+                            "status": "matched"
+                        }
+                    }
                 )
 
-                update_state(user_id, "idle")
+                if result.matched_count == 0:
+                    send_line_message(user_id, "❌ มีผู้อื่นรับเวรนี้ไปแล้ว")
+                    update_state(user_id, "idle")
+                    return {"status": "no-match"}
 
-                send_line_message(user_id, "✅ ลงทะเบียนสำเร็จ")
+                update_state(user_id, "idle")
+                send_line_message(user_id, "✅ รับเวรแทนเรียบร้อยแล้ว")
 
             elif msg == "2":
                 update_state(user_id, "idle")
