@@ -85,9 +85,11 @@ async def webhook(request: Request):
                 "doctor_id": str(doctor["_id"])
             })
 
+            doctor_name = f"{doctor.get('first_name', '')} {doctor.get('last_name', '')}".strip()
+
             send_line_message(
                 user_id,
-                f"ยืนยัน {doctor.get('thai_full_name')}\nพิมพ์ 1=ยืนยัน 2=ยกเลิก"
+                f"ยืนยัน {doctor_name}\nพิมพ์ 1=ยืนยัน 2=ยกเลิก"
             )
 
         # -------------------------
@@ -148,6 +150,7 @@ async def webhook(request: Request):
                 update_state(user_id, "idle")
                 continue
 
+            doctor_name = f"{doctor.get('first_name', '')} {doctor.get('last_name', '')}".strip()
             result = leave_collection.update_one(
                 {
                     "_id": ObjectId(leave_id),
@@ -156,7 +159,7 @@ async def webhook(request: Request):
                 {
                     "$set": {
                         "replacement_doctors.$[elem].status": "matched",
-                        "accepted_by": doctor["thai_full_name"],
+                        "accepted_by": doctor_name,
                         "status": "matched"
                     }
                 },
