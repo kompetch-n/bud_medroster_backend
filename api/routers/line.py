@@ -95,47 +95,47 @@ async def webhook(request: Request):
         # -------------------------
         # STATE: confirm
         # -------------------------
-        elif state == "confirm":
-            if msg == "1":
-                leave_id = session["context"].get("leave_id")
+        # elif state == "confirm":
+        #     if msg == "1":
+        #         leave_id = session["context"].get("leave_id")
 
-                accepted_by = {
-                    "doctor_id": str(doctor["_id"]),
-                    "name": f"{doctor.get('thai_first_name', '')} {doctor.get('thai_last_name', '')}".strip(),
-                    "line_id": user_id,
-                    "accepted_at": datetime.utcnow()
-                }
+        #         accepted_by = {
+        #             "doctor_id": str(doctor["_id"]),
+        #             "name": f"{doctor.get('thai_first_name', '')} {doctor.get('thai_last_name', '')}".strip(),
+        #             "line_id": user_id,
+        #             "accepted_at": datetime.utcnow()
+        #         }
 
-                result = leave_collection.update_one(
-                    {
-                        "_id": ObjectId(leave_id),
-                        "replacement_doctors": {
-                            "$elemMatch": {
-                                "doctor_id": str(doctor["_id"]),
-                                "status": "pending"
-                            }
-                        }
-                    },
-                    {
-                        "$set": {
-                            "replacement_doctors.$.status": "matched",
-                            "accepted_by": accepted_by,
-                            "status": "matched"
-                        }
-                    }
-                )
+        #         result = leave_collection.update_one(
+        #             {
+        #                 "_id": ObjectId(leave_id),
+        #                 "replacement_doctors": {
+        #                     "$elemMatch": {
+        #                         "doctor_id": str(doctor["_id"]),
+        #                         "status": "pending"
+        #                     }
+        #                 }
+        #             },
+        #             {
+        #                 "$set": {
+        #                     "replacement_doctors.$.status": "matched",
+        #                     "accepted_by": accepted_by,
+        #                     "status": "matched"
+        #                 }
+        #             }
+        #         )
 
-                if result.matched_count == 0:
-                    send_line_message(user_id, "❌ มีผู้อื่นรับเวรนี้ไปแล้ว")
-                    update_state(user_id, "idle")
-                    return {"status": "no-match"}
+        #         if result.matched_count == 0:
+        #             send_line_message(user_id, "❌ มีผู้อื่นรับเวรนี้ไปแล้ว")
+        #             update_state(user_id, "idle")
+        #             return {"status": "no-match"}
 
-                update_state(user_id, "idle")
-                send_line_message(user_id, "✅ รับเวรแทนเรียบร้อยแล้ว")
+        #         update_state(user_id, "idle")
+        #         send_line_message(user_id, "✅ รับเวรแทนเรียบร้อยแล้ว")
 
-            elif msg == "2":
-                update_state(user_id, "idle")
-                send_line_message(user_id, "ยกเลิกแล้ว")
+        #     elif msg == "2":
+        #         update_state(user_id, "idle")
+        #         send_line_message(user_id, "ยกเลิกแล้ว")
 
        # -------------------------
         # STATE: waiting_accept_leave
@@ -178,21 +178,30 @@ async def webhook(request: Request):
                 continue
 
             doctor_name = f"{doctor.get('first_name', '')} {doctor.get('last_name', '')}".strip()
+            accepted_by = {
+                "doctor_id": str(doctor["_id"]),
+                "name": f"{doctor.get('thai_full_name', '')}".strip(),
+                "line_id": user_id,
+                "accepted_at": datetime.utcnow()
+            }
+
             result = leave_collection.update_one(
                 {
                     "_id": ObjectId(leave_id),
-                    "replacement_doctors.status": "pending"
+                    "replacement_doctors": {
+                        "$elemMatch": {
+                            "doctor_id": str(doctor["_id"]),
+                            "status": "pending"
+                        }
+                    }
                 },
                 {
                     "$set": {
-                        "replacement_doctors.$[elem].status": "matched",
-                        "accepted_by": doctor_name,
+                        "replacement_doctors.$.status": "matched",
+                        "accepted_by": accepted_by,
                         "status": "matched"
                     }
-                },
-                array_filters=[
-                    {"elem.doctor_id": str(doctor["_id"])}
-                ]
+                }
             )
 
             if result.modified_count == 0:
