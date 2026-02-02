@@ -85,7 +85,7 @@ async def webhook(request: Request):
                 "doctor_id": str(doctor["_id"])
             })
 
-            doctor_name = f"{doctor.get('first_name', '')} {doctor.get('last_name', '')}".strip()
+            doctor_name = f"{doctor.get('thai_first_name', '')} {doctor.get('thai_last_name', '')}".strip()
 
             send_line_message(
                 user_id,
