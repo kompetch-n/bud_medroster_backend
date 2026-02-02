@@ -37,18 +37,20 @@ def create_leave(data: LeaveRequest):
         if not doctor or not doctor.get("line_id"):
             continue
 
+        # 1️⃣ ส่ง LINE
         send_line_message(
-    doctor["line_id"],
-    f"""
-มีคำขอเวรแทน
+            doctor["line_id"],
+            f"""
+    มีคำขอเวรแทน
 
-วันที่: {doc['start_date']}
-แพทย์: {doc['thai_full_name']}
+    วันที่: {doc['start_date']}
+    แพทย์: {doc['thai_full_name']}
 
-พิมพ์ OK เพื่อรับเวร
-"""
+    พิมพ์ OK เพื่อรับเวร
+    """
         )
 
+        # 2️⃣ อัพเดทสถานะเป็นรอการตอบรับ
         session_collection.update_one(
             {"user_id": doctor["line_id"]},
             {
