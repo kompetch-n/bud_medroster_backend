@@ -3,7 +3,8 @@ from typing import Optional
 
 class ShiftRequest(BaseModel):
     doctor_id: str
-    thai_full_name: str
+    thai_first_name: str
+    thai_last_name: str
     care_provider_code: str
     ipus: str
     department: str
