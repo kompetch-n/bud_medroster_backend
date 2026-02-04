@@ -3,7 +3,7 @@ from bson import ObjectId
 from datetime import datetime
 from typing import Optional
 
-from api.core.database import shift_collection, leave_collection
+from api.core.database import shift_collection, leave_collection, doctor_collection
 from api.models.shift import ShiftRequest
 
 router = APIRouter(prefix="/shift-requests", tags=["Shifts"])
@@ -46,6 +46,48 @@ def get_shift_requests(status: Optional[str] = None, date: Optional[str] = None)
 #         results.append(doc)
 #     return results
 
+# @router.get("/table")
+# def get_shift_table(ipus: str, department: str, start: str, end: str):
+
+#     query = {
+#         "ipus": ipus,
+#         "department": department,
+#         "date": {"$gte": start, "$lte": end},
+#         "status": {"$ne": "rejected"}
+#     }
+
+#     results = []
+
+#     for doc in shift_collection.find(query):
+#         doc["_id"] = str(doc["_id"])
+#         doc["shift_key"] = f'{doc["sub_department"]}|{doc["shift_name"]}'
+#         doc_date = doc["date"]
+
+#         # 🔥 หา leave วันนั้น
+#         leave = leave_collection.find_one({
+#             "doctor_id": doc["doctor_id"],
+#             "start_date": {"$lte": doc_date},
+#             "end_date": {"$gte": doc_date},
+#             "status": {"$in": ["waiting_replacement", "matched"]}
+#         })
+
+#         if leave:
+#             doc["is_on_leave"] = True
+
+#             accepted = next(
+#                 (r for r in leave.get("replacement_doctors", [])
+#                 if r.get("status") in ["approved", "matched", "accepted"]),
+#                 None
+#             )
+
+#             if accepted:
+#                 doc["replacement_name"] = accepted.get("doctor_name")
+
+
+#         results.append(doc)
+
+#     return results
+
 @router.get("/table")
 def get_shift_table(ipus: str, department: str, start: str, end: str):
 
@@ -58,33 +100,52 @@ def get_shift_table(ipus: str, department: str, start: str, end: str):
 
     results = []
 
+    # ===============================
+    # 1) SHIFT ปกติ
+    # ===============================
     for doc in shift_collection.find(query):
         doc["_id"] = str(doc["_id"])
         doc["shift_key"] = f'{doc["sub_department"]}|{doc["shift_name"]}'
-        doc_date = doc["date"]
+        results.append(doc)
 
-        # 🔥 หา leave วันนั้น
-        leave = leave_collection.find_one({
-            "doctor_id": doc["doctor_id"],
-            "start_date": {"$lte": doc_date},
-            "end_date": {"$gte": doc_date},
-            "status": {"$in": ["waiting_replacement", "matched"]}
+    # ===============================
+    # 2) SHIFT แพทย์ที่มาแทน (🔥 ตรงนี้แหละ)
+    # ===============================
+    matched_leaves = leave_collection.find({
+        "status": "matched",
+        "ipus": ipus,
+        "department": department,
+        "start_date": {"$lte": end},
+        "end_date": {"$gte": start}
+    })
+
+    for leave in matched_leaves:
+        accepted = leave.get("accepted_by")
+        if not accepted:
+            continue
+
+        doctor = doctor_collection.find_one({
+            "_id": ObjectId(accepted["doctor_id"])
         })
 
-        if leave:
-            doc["is_on_leave"] = True
+        if not doctor:
+            continue
 
-            accepted = next(
-                (r for r in leave.get("replacement_doctors", [])
-                if r.get("status") in ["approved", "matched", "accepted"]),
-                None
-            )
+        replacement_shift = {
+            "_id": f"replacement-{leave['_id']}",
+            "doctor_id": str(doctor["_id"]),
+            "thai_first_name": doctor.get("thai_first_name"),
+            "thai_last_name": doctor.get("thai_last_name"),
+            "department": doctor.get("department"),
+            "sub_department": leave.get("sub_department"),
+            "shift_name": leave.get("shift_name"),
+            "shift_key": f"{leave.get('sub_department')}|{leave.get('shift_name')}",
+            "date": leave.get("start_date"),
+            "replacement": True,              # ⭐ flag สำคัญ
+            "replacing_doctor_id": leave.get("doctor_id")
+        }
 
-            if accepted:
-                doc["replacement_name"] = accepted.get("doctor_name")
-
-
-        results.append(doc)
+        results.append(replacement_shift)
 
     return results
 
