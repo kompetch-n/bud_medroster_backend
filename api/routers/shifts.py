@@ -123,28 +123,34 @@ def get_shift_table(ipus: str, department: str, start: str, end: str):
     })
 
     for leave in matched_leaves:
-        print("MATCHED LEAVE:", leave)
-
         accepted = leave.get("accepted_by")
-        print("ACCEPTED BY:", accepted)
         if not accepted:
             continue
 
-        doctor = doctor_collection.find_one({
-            "_id": ObjectId(accepted["doctor_id"])
-        })
+        doctor_id = accepted.get("doctor_id")
+        if not doctor_id or not ObjectId.is_valid(str(doctor_id)):
+            print("❌ INVALID doctor_id:", doctor_id)
+            continue
+
+        doctor = doctor_collection.find_one(
+            {"_id": ObjectId(str(doctor_id))}
+        )
         if not doctor:
             continue
 
-        leave_start = datetime.strptime(leave["start_date"], "%Y-%m-%d")
-        leave_end = datetime.strptime(leave["end_date"], "%Y-%m-%d")
+        shift_name = (leave.get("shift_name") or "").strip()
+        sub = (leave.get("sub_department") or "").strip()
+        if not shift_name or not sub:
+            continue
 
-        d = leave_start
-        while d <= leave_end:
+        start_date = datetime.strptime(start, "%Y-%m-%d")
+        end_date = datetime.strptime(end, "%Y-%m-%d")
+
+        d = max(start_date, datetime.strptime(leave["start_date"], "%Y-%m-%d"))
+        last = min(end_date, datetime.strptime(leave["end_date"], "%Y-%m-%d"))
+
+        while d <= last:
             date_str = d.strftime("%Y-%m-%d")
-
-            shift_name = leave["shift_name"].strip()
-            sub = leave["sub_department"].strip()
 
             replacement_shift = {
                 "_id": f"replacement-{leave['_id']}-{date_str}",
@@ -160,8 +166,8 @@ def get_shift_table(ipus: str, department: str, start: str, end: str):
             }
 
             print("🔥 PUSH REPLACEMENT SHIFT:", replacement_shift)
-
             results.append(replacement_shift)
+
             d += timedelta(days=1)
 
     return results
