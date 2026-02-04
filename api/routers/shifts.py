@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from bson import ObjectId
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from api.core.database import shift_collection, leave_collection, doctor_collection
@@ -127,25 +127,34 @@ def get_shift_table(ipus: str, department: str, start: str, end: str):
         doctor = doctor_collection.find_one({
             "_id": ObjectId(accepted["doctor_id"])
         })
-
         if not doctor:
             continue
 
-        replacement_shift = {
-            "_id": f"replacement-{leave['_id']}",
-            "doctor_id": str(doctor["_id"]),
-            "thai_first_name": doctor.get("thai_first_name"),
-            "thai_last_name": doctor.get("thai_last_name"),
-            "department": doctor.get("department"),
-            "sub_department": leave.get("sub_department"),
-            "shift_name": leave.get("shift_name"),
-            "shift_key": f"{leave.get('sub_department')}|{leave.get('shift_name')}",
-            "date": leave.get("start_date"),
-            "replacement": True,              # ⭐ flag สำคัญ
-            "replacing_doctor_id": leave.get("doctor_id")
-        }
+        start = datetime.strptime(leave["start_date"], "%Y-%m-%d")
+        end = datetime.strptime(leave["end_date"], "%Y-%m-%d")
+
+        d = start
+        while d <= end:
+            date_str = d.strftime("%Y-%m-%d")
+
+            replacement_shift = {
+                "_id": f"replacement-{leave['_id']}-{date_str}",
+                "doctor_id": str(doctor["_id"]),
+                "thai_first_name": doctor.get("thai_first_name"),
+                "thai_last_name": doctor.get("thai_last_name"),
+
+                "department": doctor.get("department"),
+                "sub_department": leave.get("sub_department"),
+                "shift_name": leave.get("shift_name"),
+                "shift_key": f"{leave.get('sub_department')}|{leave.get('shift_name')}",
+
+                "date": date_str,
+                "replacement": True,
+                "replacing_doctor_id": leave.get("doctor_id")
+            }
 
         results.append(replacement_shift)
+        d += timedelta(days=1)
 
     return results
 
