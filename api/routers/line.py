@@ -37,6 +37,9 @@ def update_state(user_id, state, context=None):
         upsert=True
     )
 
+def get_thai_fullname(doctor: dict) -> str:
+    return f"{doctor.get('thai_first_name', '')} {doctor.get('thai_last_name', '')}".strip()
+
 @router.post("/send-line")
 def send_line_api(data: SendLineRequest):
     result = send_line_message(data.to, data.message)
@@ -177,10 +180,11 @@ async def webhook(request: Request):
                 update_state(user_id, "idle")
                 continue
 
-            doctor_name = f"{doctor.get('first_name', '')} {doctor.get('last_name', '')}".strip()
+            doctor_name = get_thai_fullname(doctor)
+
             accepted_by = {
                 "doctor_id": str(doctor["_id"]),
-                "name": f"{doctor.get('thai_full_name', '')}".strip(),
+                "name": doctor_name,
                 "line_id": user_id,
                 "accepted_at": datetime.utcnow()
             }
