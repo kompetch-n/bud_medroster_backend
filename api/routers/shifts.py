@@ -143,21 +143,23 @@ def get_shift_table(ipus: str, department: str, start: str, end: str):
         while d <= leave_end:
             date_str = d.strftime("%Y-%m-%d")
 
+            shift_name = leave["shift_name"].strip()
+            sub = leave["sub_department"].strip()
+
             replacement_shift = {
                 "_id": f"replacement-{leave['_id']}-{date_str}",
                 "doctor_id": str(doctor["_id"]),
                 "thai_first_name": doctor.get("thai_first_name"),
                 "thai_last_name": doctor.get("thai_last_name"),
-
                 "department": doctor.get("department"),
                 "sub_department": leave.get("sub_department"),
                 "shift_name": leave.get("shift_name"),
-                "shift_key": f"{leave.get('sub_department')}|{leave.get('shift_name')}",
-
+                "shift_key": f"{sub}|{shift_name}",
                 "date": date_str,
                 "replacement": True,
-                "replacing_doctor_id": leave.get("doctor_id")
             }
+
+            print("🔥 PUSH REPLACEMENT SHIFT:", replacement_shift)
 
             results.append(replacement_shift)
             d += timedelta(days=1)
