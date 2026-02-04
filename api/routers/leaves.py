@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from bson import ObjectId
 from datetime import datetime
 
-from api.core.database import leave_collection, doctor_collection, session_collection
+from api.core.database import leave_collection, doctor_collection, session_collection, shift_collection
 from api.models.leave import LeaveRequest
 from api.services.line_service import send_line_message
 
@@ -148,14 +148,33 @@ def reject_leave(leave_id: str, approver_name: str):
     )
     return {"message": "rejected"}
 
+# @router.post("/{leave_id}/confirm")
+# def confirm_replacement(leave_id: str, doctor_id: str):
+
+#     leave = leave_collection.find_one({"_id": ObjectId(leave_id)})
+
+#     if not leave:
+#         raise HTTPException(404, "Leave not found")
+
+#     for d in leave["replacement_doctors"]:
+#         if d["doctor_id"] == doctor_id:
+#             d["status"] = "accepted"
+
+#     leave_collection.update_one(
+#         {"_id": ObjectId(leave_id)},
+#         {"$set": {"replacement_doctors": leave["replacement_doctors"]}}
+#     )
+
+#     return {"message": "confirmed"}
+
 @router.post("/{leave_id}/confirm")
 def confirm_replacement(leave_id: str, doctor_id: str):
 
     leave = leave_collection.find_one({"_id": ObjectId(leave_id)})
-
     if not leave:
         raise HTTPException(404, "Leave not found")
 
+    # อัปเดตสถานะ
     for d in leave["replacement_doctors"]:
         if d["doctor_id"] == doctor_id:
             d["status"] = "accepted"
@@ -164,5 +183,18 @@ def confirm_replacement(leave_id: str, doctor_id: str):
         {"_id": ObjectId(leave_id)},
         {"$set": {"replacement_doctors": leave["replacement_doctors"]}}
     )
+
+    # 🔥 สร้าง shift ให้แพทย์แทน
+    shift_collection.insert_one({
+        "doctor_id": doctor_id,
+        "date": leave["start_date"],   # หรือ loop ถ้าลาหลายวัน
+        "ipus": leave["ipus"],
+        "department": leave["department"],
+        "sub_department": leave["sub_department"],
+        "shift_name": leave["shift_name"],  # ต้องส่งมาจากตอนขอลา
+        "replacement": True,
+        "status": "approved",
+        "created_at": datetime.utcnow()
+    })
 
     return {"message": "confirmed"}
