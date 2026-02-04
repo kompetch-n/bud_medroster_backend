@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from api.core.database import shift_collection, leave_collection, doctor_collection
+from api.models import leave
 from api.models.shift import ShiftRequest
 
 router = APIRouter(prefix="/shift-requests", tags=["Shifts"])
@@ -130,11 +131,11 @@ def get_shift_table(ipus: str, department: str, start: str, end: str):
         if not doctor:
             continue
 
-        start = datetime.strptime(leave["start_date"], "%Y-%m-%d")
-        end = datetime.strptime(leave["end_date"], "%Y-%m-%d")
+        leave_start = datetime.strptime(leave["start_date"], "%Y-%m-%d")
+        leave_end = datetime.strptime(leave["end_date"], "%Y-%m-%d")
 
-        d = start
-        while d <= end:
+        d = leave_start
+        while d <= leave_end:
             date_str = d.strftime("%Y-%m-%d")
 
             replacement_shift = {
@@ -153,8 +154,8 @@ def get_shift_table(ipus: str, department: str, start: str, end: str):
                 "replacing_doctor_id": leave.get("doctor_id")
             }
 
-        results.append(replacement_shift)
-        d += timedelta(days=1)
+            results.append(replacement_shift)
+            d += timedelta(days=1)
 
     return results
 
