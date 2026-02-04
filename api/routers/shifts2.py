@@ -92,11 +92,6 @@ def get_shift_requests(status: Optional[str] = None, date: Optional[str] = None)
 @router.get("/table")
 def get_shift_table(ipus: str, department: str, start: str, end: str):
 
-    print("=== SHIFT TABLE QUERY ===")
-    print("ipus:", ipus)
-    print("department:", department)
-    print("start-end:", start, end)
-
     query = {
         "ipus": ipus,
         "department": department,
@@ -106,14 +101,17 @@ def get_shift_table(ipus: str, department: str, start: str, end: str):
 
     results = []
 
+    # ===============================
     # 1) SHIFT ปกติ
+    # ===============================
     for doc in shift_collection.find(query):
-        print("NORMAL SHIFT:", doc)
         doc["_id"] = str(doc["_id"])
         doc["shift_key"] = f'{doc["sub_department"]}|{doc["shift_name"]}'
         results.append(doc)
 
-    # 2) SHIFT แพทย์แทน
+    # ===============================
+    # 2) SHIFT แพทย์ที่มาแทน (🔥 ตรงนี้แหละ)
+    # ===============================
     matched_leaves = leave_collection.find({
         "status": "matched",
         "ipus": ipus,
@@ -123,10 +121,7 @@ def get_shift_table(ipus: str, department: str, start: str, end: str):
     })
 
     for leave in matched_leaves:
-        print("MATCHED LEAVE:", leave)
-
         accepted = leave.get("accepted_by")
-        print("ACCEPTED BY:", accepted)
         if not accepted:
             continue
 
