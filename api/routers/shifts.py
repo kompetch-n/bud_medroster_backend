@@ -122,26 +122,41 @@ def get_shift_table(ipus: str, department: str, start: str, end: str):
         # หาข้อมูลแพทย์ที่มาแทนเพื่อเอาชื่อไทย
         replacement_doc = doctor_collection.find_one({"_id": ObjectId(accepted["doctor_id"])})
         
-        # วนลูปสร้าง Record สำหรับทุกวันที่ลา (ถ้าลาหลายวัน)
-        curr_d = datetime.strptime(max(start, leave["start_date"]), "%Y-%m-%d")
-        end_d = datetime.strptime(min(end, leave["end_date"]), "%Y-%m-%d")
+        start_date = datetime.strptime(start, "%Y-%m-%d")
+        end_date = datetime.strptime(end, "%Y-%m-%d")
 
-        while curr_d <= end_d:
-            date_str = curr_d.strftime("%Y-%m-%d")
-            results.append({
+        d = max(start_date, datetime.strptime(leave["start_date"], "%Y-%m-%d"))
+        last = min(end_date, datetime.strptime(leave["end_date"], "%Y-%m-%d"))
+
+        while d <= last:
+            date_str = d.strftime("%Y-%m-%d")
+
+            shift_name = leave.get("shift_name")
+            sub = leave.get("sub_department")
+
+            shift_name_clean = str(shift_name).strip() if shift_name else "ไม่ระบุเวร"
+            sub_clean = str(sub).strip() if sub else "ไม่ระบุแผนก"
+
+            # ⚠️ เปลี่ยนจาก doctor เป็น replacement_doc ให้ตรงกับที่ find_one มาข้างบน
+            replacement_shift = {
                 "_id": f"replacement-{leave['_id']}-{date_str}",
-                "doctor_id": accepted["doctor_id"],
-                "thai_full_name": accepted.get("name"), # ใช้ชื่อจาก accepted_by โดยตรง
+                "doctor_id": str(replacement_doc["_id"]) if replacement_doc else accepted["doctor_id"],
+                "thai_full_name": accepted.get("name"), # ใช้ชื่อจาก accepted_by โดยตรงจะปลอดภัยสุด
                 "thai_first_name": replacement_doc.get("thai_first_name") if replacement_doc else "",
                 "thai_last_name": replacement_doc.get("thai_last_name") if replacement_doc else "",
-                "sub_department": leave.get("sub_department"),
-                "shift_name": leave.get("shift_name"),
-                "shift_key": f"{leave.get('sub_department')}|{leave.get('shift_name')}",
+                "department": replacement_doc.get("department") if replacement_doc else department,
+                "sub_department": sub_clean,
+                "shift_name": shift_name_clean,
+                "shift_key": f"{sub_clean}|{shift_name_clean}", 
                 "date": date_str,
                 "replacement": True,
-                "original_doctor_name": leave.get("thai_full_name") # เก็บชื่อแพทย์เดิมไว้แสดงผล
-            })
-            curr_d += timedelta(days=1)
+                "original_doctor_name": leave.get("thai_full_name"),
+            }
+
+            print("🔥 PUSH REPLACEMENT SHIFT:", replacement_shift)
+            results.append(replacement_shift)
+
+            d += timedelta(days=1)
 
     return results
 
