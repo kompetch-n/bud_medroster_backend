@@ -91,70 +91,71 @@ def get_shift_requests(status: Optional[str] = None, date: Optional[str] = None)
 
 @router.get("/table")
 def get_shift_table(ipus: str, department: str, start: str, end: str):
-
     query = {
         "ipus": ipus,
         "department": department,
         "date": {"$gte": start, "$lte": end},
         "status": {"$ne": "rejected"}
     }
-
     results = []
 
-    # ===============================
-    # 1) SHIFT ปกติ
-    # ===============================
+    # 1. ดึงเวรปกติ
     for doc in shift_collection.find(query):
         doc["_id"] = str(doc["_id"])
         doc["shift_key"] = f'{doc["sub_department"]}|{doc["shift_name"]}'
         results.append(doc)
 
-    # ===============================
-    # 2) SHIFT แพทย์ที่มาแทน (🔥 ตรงนี้แหละ)
-    # ===============================
+    # 2. ดึงเวรแทนจากการลา (สถานะ matched)
     matched_leaves = leave_collection.find({
         "status": "matched",
         "ipus": ipus,
         "department": department,
+        # ตรวจสอบว่าช่วงที่ลามีส่วนใดส่วนหนึ่งทับซ้อนกับช่วงที่เรียกดูตาราง
         "start_date": {"$lte": end},
         "end_date": {"$gte": start}
     })
 
     for leave in matched_leaves:
         accepted = leave.get("accepted_by")
-        if not accepted:
-            continue
+        if not accepted: continue
 
-        doctor = doctor_collection.find_one({
-            "_id": ObjectId(accepted["doctor_id"])
-        })
-        if not doctor:
-            continue
+        # หาข้อมูลแพทย์ที่มาแทนเพื่อเอาชื่อไทย
+        replacement_doc = doctor_collection.find_one({"_id": ObjectId(accepted["doctor_id"])})
+        
+        start_date = datetime.strptime(start, "%Y-%m-%d")
+        end_date = datetime.strptime(end, "%Y-%m-%d")
 
-        leave_start = datetime.strptime(leave["start_date"], "%Y-%m-%d")
-        leave_end = datetime.strptime(leave["end_date"], "%Y-%m-%d")
+        d = max(start_date, datetime.strptime(leave["start_date"], "%Y-%m-%d"))
+        last = min(end_date, datetime.strptime(leave["end_date"], "%Y-%m-%d"))
 
-        d = leave_start
-        while d <= leave_end:
+        while d <= last:
             date_str = d.strftime("%Y-%m-%d")
 
+            shift_name = leave.get("shift_name")
+            sub = leave.get("sub_department")
+
+            shift_name_clean = str(shift_name).strip() if shift_name else "ไม่ระบุเวร"
+            sub_clean = str(sub).strip() if sub else "ไม่ระบุแผนก"
+
+            # ⚠️ เปลี่ยนจาก doctor เป็น replacement_doc ให้ตรงกับที่ find_one มาข้างบน
             replacement_shift = {
                 "_id": f"replacement-{leave['_id']}-{date_str}",
-                "doctor_id": str(doctor["_id"]),
-                "thai_first_name": doctor.get("thai_first_name"),
-                "thai_last_name": doctor.get("thai_last_name"),
-
-                "department": doctor.get("department"),
-                "sub_department": leave.get("sub_department"),
-                "shift_name": leave.get("shift_name"),
-                "shift_key": f"{leave.get('sub_department')}|{leave.get('shift_name')}",
-
+                "doctor_id": str(replacement_doc["_id"]) if replacement_doc else accepted["doctor_id"],
+                "thai_full_name": accepted.get("name"), # ใช้ชื่อจาก accepted_by โดยตรงจะปลอดภัยสุด
+                "thai_first_name": replacement_doc.get("thai_first_name") if replacement_doc else "",
+                "thai_last_name": replacement_doc.get("thai_last_name") if replacement_doc else "",
+                "department": replacement_doc.get("department") if replacement_doc else department,
+                "sub_department": sub_clean,
+                "shift_name": shift_name_clean,
+                "shift_key": f"{sub_clean}|{shift_name_clean}", 
                 "date": date_str,
                 "replacement": True,
-                "replacing_doctor_id": leave.get("doctor_id")
+                "original_doctor_name": leave.get("thai_full_name"),
             }
 
+            print("🔥 PUSH REPLACEMENT SHIFT:", replacement_shift)
             results.append(replacement_shift)
+
             d += timedelta(days=1)
 
     return results
